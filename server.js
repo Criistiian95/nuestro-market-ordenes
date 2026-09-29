@@ -116,7 +116,7 @@ function makePdf(res,payload,s){
 const server=http.createServer(async(req,res)=>{const u=new URL(req.url,"http://localhost");
   try{
     if(req.method==="GET"&&(u.pathname==="/"||u.pathname==="/index.html"))return file(res,"index.html","text/html; charset=utf-8");
-    if(req.method==="GET"&&u.pathname==="/admin")return file(res,"admin.html","text/html; charset=utf-8");
+    if(req.method==="GET"&&u.pathname==="/admin")return file(res,"admin.html","text/html; charset=utf-8");\n    if(req.method==="GET"&&u.pathname==="/logo.jpg")return file(res,"logo.jpg","image/jpeg");
     if(req.method==="GET"&&u.pathname==="/health"){res.writeHead(200,{"Content-Type":"text/plain"});return res.end("ok")}
     if(req.method==="GET"&&u.pathname==="/api/data"){const s=await load();return json(res,200,{dataset:s.dataset||[],meta:s.meta||{},ready:!!(s.costs&&s.stock&&s.sales)})}
     if(req.method==="GET"&&u.pathname==="/api/status"){const s=await load();return json(res,200,{costs:s.costs?Object.keys(s.costs).length:0,stock:s.stock?Object.keys(s.stock).length:0,sales:s.sales?Object.keys(s.sales.byCode).length:0,meta:s.meta||{},database:pool?"postgres":"local"})}
