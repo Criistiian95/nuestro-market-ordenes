@@ -121,6 +121,7 @@ const server=http.createServer(async(req,res)=>{const u=new URL(req.url,"http://
     if(req.method==="GET"&&u.pathname==="/api/data"){const s=await load();return json(res,200,{dataset:s.dataset||[],meta:s.meta||{},ready:!!(s.costs&&s.stock&&s.sales)})}
     if(req.method==="GET"&&u.pathname==="/api/status"){const s=await load();return json(res,200,{costs:s.costs?Object.keys(s.costs).length:0,stock:s.stock?Object.keys(s.stock).length:0,sales:s.sales?Object.keys(s.sales.byCode).length:0,meta:s.meta||{},database:pool?"postgres":"local"})}
     if(req.method==="POST"&&u.pathname==="/api/upload"){
+      if(process.env.RENDER&&!pool)return json(res,503,{error:"Falta conectar DATABASE_URL en Render antes de cargar las bases"});
       if(!ADMIN_PIN)return json(res,503,{error:"ADMIN_PIN no configurado en el servidor"});
       const p=JSON.parse((await body(req)).toString("utf8"));if(!authorized(p.pin))return json(res,403,{error:"PIN incorrecto"});
       const buf=Buffer.from(p.dataBase64||"","base64");if(!buf.length)throw new Error("Archivo vacío");
