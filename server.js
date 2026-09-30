@@ -64,13 +64,15 @@ function rebuild(s){
   while(d<=end){dates.push([d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"));d.setDate(d.getDate()+1)}
   const out=[];const cov=7,safe=2;
   for(const [c,m] of Object.entries(s.costs)){
-    const st=s.stock[c];if(!st)continue;
+    const st=s.stock[c]||null;
+    const stockMissing=!st;
     const map=s.sales.byCode[c]||{},daily=dates.map(k=>Number(map[k]||0)),l7=daily.slice(-7),l14=daily.slice(-14);
     const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
     const a7=avg(l7),a14=avg(l14),aa=avg(daily),dem=.5*a7+.3*a14+.2*aa;
-    const stockCalc=Math.max(0,Number(st.stock||0)),target=dem*(cov+safe),need=Math.max(0,target-stockCalc),uxb=Math.max(1,Number(st.uxb||1));
+    const stockValue=st?Number(st.stock||0):0;
+    const stockCalc=Math.max(0,stockValue),target=dem*(cov+safe),need=Math.max(0,target-stockCalc),uxb=Math.max(1,Number(st?.uxb||1));
     const suggested=dem>0&&need>0?Math.ceil((need-1e-9)/uxb)*uxb:0;
-    out.push({code:c,desc:m.desc,rubro:m.rubro,provider:m.provider,stock:Number(st.stock||0),uxb,sold7:l7.reduce((x,y)=>x+y,0),demand:dem,coverage:dem>0?stockCalc/dem:null,suggested,soldTotal:daily.reduce((x,y)=>x+y,0)})
+    out.push({code:c,desc:m.desc,rubro:m.rubro,provider:m.provider,stock:stockValue,uxb,stockMissing,sold7:l7.reduce((x,y)=>x+y,0),demand:dem,coverage:dem>0?stockCalc/dem:null,suggested,soldTotal:daily.reduce((x,y)=>x+y,0)})
   }
   const salesDays=dayCount(s.sales.minDate,s.sales.maxDate);
   s.dataset=out;
@@ -122,7 +124,7 @@ const server=http.createServer(async(req,res)=>{const u=new URL(req.url,"http://
     if(req.method==="GET"&&u.pathname==="/logo.jpg")return file(res,"logo.jpg","image/jpeg");
     if(req.method==="GET"&&u.pathname==="/assets/logo.jpg")return file(res,"assets/logo.jpg","image/jpeg");
     if(req.method==="GET"&&u.pathname==="/health"){res.writeHead(200,{"Content-Type":"text/plain"});return res.end("ok")}
-    if(req.method==="GET"&&u.pathname==="/api/data"){const s=await load();return json(res,200,{dataset:s.dataset||[],meta:s.meta||{},ready:!!(s.costs&&s.stock&&s.sales)})}
+    if(req.method==="GET"&&u.pathname==="/api/data"){const s=await load();if(s.costs&&s.stock&&s.sales){rebuild(s);await save(s)}return json(res,200,{dataset:s.dataset||[],meta:s.meta||{},ready:!!(s.costs&&s.stock&&s.sales)})}
     if(req.method==="GET"&&u.pathname==="/api/status"){const s=await load();return json(res,200,{costs:s.costs?Object.keys(s.costs).length:0,stock:s.stock?Object.keys(s.stock).length:0,sales:s.sales?Object.keys(s.sales.byCode).length:0,meta:s.meta||{},database:pool?"postgres":"local"})}
     if(req.method==="POST"&&u.pathname==="/api/upload"){
       if(process.env.RENDER&&!pool)return json(res,503,{error:"Falta conectar DATABASE_URL en Render antes de cargar las bases"});
