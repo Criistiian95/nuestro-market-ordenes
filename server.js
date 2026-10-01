@@ -121,6 +121,7 @@ const server=http.createServer(async(req,res)=>{const u=new URL(req.url,"http://
   try{
     if(req.method==="GET"&&(u.pathname==="/"||u.pathname==="/index.html"))return file(res,"index.html","text/html; charset=utf-8");
     if(req.method==="GET"&&u.pathname==="/admin")return file(res,"admin.html","text/html; charset=utf-8");
+    if(req.method==="GET"&&(u.pathname==="/analizador"||u.pathname==="/analizador.html"))return file(res,"analizador.html","text/html; charset=utf-8");
     if(req.method==="GET"&&u.pathname==="/logo.jpg")return file(res,"logo.jpg","image/jpeg");
     if(req.method==="GET"&&u.pathname==="/assets/logo.jpg")return file(res,"assets/logo.jpg","image/jpeg");
     if(req.method==="GET"&&u.pathname==="/health"){res.writeHead(200,{"Content-Type":"text/plain"});return res.end("ok")}
