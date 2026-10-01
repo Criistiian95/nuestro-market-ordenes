@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nuestro Market · Analizador</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#15352c;--muted:#6a7974;--line:#dbe5e1;--green:#146a4b;--green2:#e7f4ee;--red:#b42318;--red2:#ffebe8;--amber:#9a5b00;--amber2:#fff2d7;--blue:#265f91}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}.wrap{max-width:1450px;margin:auto;padding:14px}.hero{background:linear-gradient(135deg,#071f1a,#0d493b);color:#fff;border-radius:22px;padding:18px 22px;display:flex;align-items:center;gap:18px}.hero img{width:220px;max-width:48vw;background:#fff;border-radius:14px;padding:6px}.hero h1{margin:0;font-size:30px}.hero p{margin:5px 0 0;color:#d7e9e3}.section{margin-top:12px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 10px #10231e08}.uploads{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.upload{padding:14px}.upload h3{margin:0 0 4px}.upload p{margin:0 0 10px;color:var(--muted);font-size:12px}.pick{display:flex;align-items:center;justify-content:center;min-height:82px;border:1.5px dashed #9eb8ae;border-radius:12px;background:#f8fbfa;cursor:pointer;font-weight:800;text-align:center;padding:12px}.pick input{display:none}.files{margin-top:8px;font-size:12px}.file{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #edf1ef}.ok{color:var(--green);font-weight:800}.bad{color:var(--red);font-weight:800}.warn{color:var(--amber);font-weight:800}.catalog{grid-column:1/-1}.toolbar{padding:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:end}.field label{display:block;font-size:10px;font-weight:900;text-transform:uppercase;color:var(--muted);margin-bottom:5px}.field select{height:40px;border:1px solid #ccd9d4;border-radius:9px;padding:0 9px;background:#fff}.btn{height:40px;border:0;border-radius:9px;padding:0 13px;font-weight:900;cursor:pointer;background:var(--green);color:#fff}.btn.secondary{background:#e8efec;color:#23473a}.status{padding:12px}.status strong{display:block}.status small{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:12px}.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}.kpi span{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:900}.kpi b{display:block;font-size:22px;margin-top:4px}.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:10px;margin-top:10px}.panel{padding:14px}.panel h3{margin:0 0 10px}.bar{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;margin:8px 0}.barline{grid-column:1/-1;height:8px;background:#e9efec;border-radius:99px;overflow:hidden}.barline i{display:block;height:100%;background:#2b8261;border-radius:99px}.tablewrap{overflow:auto;max-height:55vh}table{border-collapse:collapse;width:100%;min-width:850px;font-size:12px}th{position:sticky;top:0;background:#eaf1ee;text-align:left;padding:9px;border-bottom:1px solid #cbd9d4}td{padding:8px;border-bottom:1px solid #edf1ef}.num{text-align:right}.pill{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:800;background:#edf2f0}.empty{padding:30px;text-align:center;color:var(--muted)}.notice{display:none;padding:11px 13px;border-radius:12px;margin-top:10px;border:1px solid #efcf8b;background:var(--amber2);color:#6c4700}
+@media(max-width:900px){.uploads,.grid2{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.catalog{grid-column:auto}.hero{align-items:flex-start}.hero img{width:170px}.hero h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <img src="/assets/logo.jpg" alt="Nuestro Market">
+  <div><h1>Analizador de gestión</h1><p>Ventas, compras y decomisos. Lectura automática de archivos TECNOLAR.</p></div>
+</header>
+
+<div id="notice" class="notice"></div>
+
+<section class="section uploads">
+  <article class="card upload">
+    <h3>1. Ventas por artículo</h3>
+    <p>Acepta encabezados desplazados, fecha sólo en la primera fila del día y Rubro opcional.</p>
+    <label class="pick"><input id="salesInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" multiple>Elegir ventas</label>
+    <div class="files" id="salesFiles">Sin archivos.</div>
+  </article>
+  <article class="card upload">
+    <h3>2. Compras</h3>
+    <p>Reportes por proveedor o artículo. Detecta automáticamente la fila de títulos.</p>
+    <label class="pick"><input id="purchasesInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" multiple>Elegir compras</label>
+    <div class="files" id="purchasesFiles">Sin archivos.</div>
+  </article>
+  <article class="card upload">
+    <h3>3. Movimientos / decomiso</h3>
+    <p>Si existe columna Concepto/Movimiento, usa únicamente DECOMISO.</p>
+    <label class="pick"><input id="wasteInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" multiple>Elegir movimientos</label>
+    <div class="files" id="wasteFiles">Sin archivos.</div>
+  </article>
+  <article class="card upload catalog">
+    <h3>Catálogo o stock opcional</h3>
+    <p>Sirve para completar Rubro, descripción y proveedor cuando faltan en otros reportes.</p>
+    <label class="pick"><input id="catalogInput" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" multiple>Agregar catálogo / stock</label>
+    <div class="files" id="catalogFiles">Sin archivos.</div>
+  </article>
+</section>
+
+<section class="section card">
+  <div class="toolbar">
+    <div class="field"><label>Vista</label><select id="mode"><option value="day">Diaria</option><option value="week">Semanal</option><option value="fortnight">Quincenal</option><option value="month" selected>Mensual</option></select></div>
+    <button class="btn" id="analyze">Generar análisis</button>
+    <button class="btn secondary" id="clear">Limpiar</button>
+  </div>
+  <div class="status" id="status"><strong>Esperando archivos</strong><small>Cargá al menos un reporte de ventas.</small></div>
+</section>
+
+<section class="kpis">
+  <div class="kpi"><span>Recaudación</span><b id="kRevenue">—</b><small id="kRevenueSub"></small></div>
+  <div class="kpi"><span>Unidades vendidas</span><b id="kUnits">—</b><small id="kUnitsSub"></small></div>
+  <div class="kpi"><span>Compras</span><b id="kPurchases">—</b><small id="kPurchasesSub"></small></div>
+  <div class="kpi"><span>Decomiso</span><b id="kWaste">—</b><small id="kWasteSub"></small></div>
+</section>
+
+<section class="grid2">
+  <article class="card panel"><h3>Top productos por recaudación</h3><div id="topProducts" class="empty">Sin datos.</div></article>
+  <article class="card panel"><h3>Participación por rubro</h3><div id="rubros" class="empty">Sin datos.</div></article>
+</section>
+
+<section class="section card panel">
+  <h3>Vista normalizada</h3>
+  <div class="tablewrap"><table><thead><tr><th>Fuente</th><th>Fecha</th><th>Código</th><th>Descripción / Proveedor</th><th>Rubro</th><th class="num">Cantidad</th><th class="num">Importe</th></tr></thead><tbody id="preview"><tr><td colspan="7" class="empty">La vista previa aparecerá acá.</td></tr></tbody></table></div>
+</section>
+</div>
+
+<script>
+const state={sales:[],purchases:[],waste:[],catalog:[],files:{sales:[],purchases:[],waste:[],catalog:[]}};
+const $=s=>document.querySelector(s);
+const fmtMoney=v=>Number(v||0).toLocaleString("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0});
+const fmtNum=v=>Number(v||0).toLocaleString("es-AR",{maximumFractionDigits:2});
+const norm=v=>String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase().replace(/\s+/g," ");
+const nkey=v=>norm(v).replace(/[.\-_]/g," ").replace(/\s+/g," ").trim();
+const number=v=>{
+  if(v===null||v===undefined||v==="")return 0;
+  if(typeof v==="number")return Number.isFinite(v)?v:0;
+  let s=String(v).trim();
+  if(!s)return 0;
+  if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"").replace(",",".");
+  else if(s.includes(","))s=s.replace(",",".");
+  s=s.replace(/[$%\s]/g,"");
+  const x=Number(s); return Number.isFinite(x)?x:0;
+};
+const code=v=>String(v??"").trim().replace(/\.0$/,"");
+const aliases={
+ fecha:["fecha","date","dia","día"],
+ codigo:["codigo","código","cod","cod.","codigo int","código int","articulo","artículo","sku"],
+ descripcion:["descripcion","descripción","producto","articulo descripcion","artículo descripción","detalle","nombre"],
+ cantidad:["cantidad","cant","unidades","unidad","kgs","kg","kilos","kilogramos"],
+ recaudacion:["recaudacion","recaudación","venta","ventas","importe","importe venta","total venta","facturacion","facturación"],
+ rubro:["rubro","departamento","categoria","categoría","familia","sector","seccion","sección"],
+ proveedor:["proveedor","prove.","prov","razon social","razón social","supplier","vendedor"],
+ compra:["compras","compra","importe compra","monto compra","total compra","importe","total"],
+ concepto:["concepto","movimiento","tipo","motivo","operacion","operación"],
+ costo:["costo","costo total","costo.t","importe costo","total costo","merma","total merma"]
+};
+function findCol(headers,key){
+  const hs=headers.map((h,i)=>({i,n:nkey(h)}));
+  let best=-1,score=0;
+  for(const h of hs){
+    for(const a of aliases[key]||[]){
+      const na=nkey(a);
+      let sc=0;
+      if(h.n===na)sc=100;
+      else if(h.n.includes(na)||na.includes(h.n))sc=60;
+      if(sc>score){score=sc;best=h.i}
+    }
+  }
+  return score>=60?best:-1;
+}
+function findHeader(matrix,required){
+  let best={row:-1,score:-1};
+  for(let r=0;r<Math.min(matrix.length,40);r++){
+    const headers=(matrix[r]||[]).map(v=>String(v??"").trim());
+    let score=0;
+    for(const key of required) if(findCol(headers,key)>=0) score++;
+    if(score>best.score)best={row:r,score};
+    if(score===required.length)return r;
+  }
+  return best.score===required.length?best.row:-1;
+}
+function excelDate(v){
+  if(v instanceof Date && !isNaN(v))return new Date(v.getFullYear(),v.getMonth(),v.getDate());
+  if(typeof v==="number" && v>25000){
+    const d=XLSX.SSF.parse_date_code(v);
+    if(d)return new Date(d.y,d.m-1,d.d);
+  }
+  const s=String(v??"").trim(); if(!s)return null;
+  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){let y=+m[3];if(y<100)y+=2000;return new Date(y,+m[2]-1,+m[1])}
+  const d=new Date(s); return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+function iso(d){return d?[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-"):""}
+async function matrixFromFile(file){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellDates:true});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true,blankrows:false});
+}
+async function parseSales(file){
+  const m=await matrixFromFile(file),hr=findHeader(m,["codigo","descripcion","cantidad","recaudacion"]);
+  if(hr<0)throw new Error("No encontré Código, Descripción, Cantidad y Recaudación en las primeras 40 filas.");
+  const h=m[hr].map(v=>String(v??"").trim()),iDate=findCol(h,"fecha"),iCode=findCol(h,"codigo"),iDesc=findCol(h,"descripcion"),iQty=findCol(h,"cantidad"),iRev=findCol(h,"recaudacion"),iRub=findCol(h,"rubro");
+  let current=null,out=[];
+  for(let r=hr+1;r<m.length;r++){
+    const row=m[r]||[];
+    if(iDate>=0 && String(row[iDate]??"").trim()!==""){const d=excelDate(row[iDate]);if(d)current=d}
+    const c=code(row[iCode]),desc=String(row[iDesc]??"").trim(),qty=number(row[iQty]),rev=number(row[iRev]);
+    if(!c || !desc || (!qty && !rev))continue;
+    out.push({source:"Ventas",file:file.name,date:iso(current),code:c,desc,rubro:iRub>=0?String(row[iRub]??"").trim():"",qty,amount:rev});
+  }
+  if(!out.length)throw new Error("Detecté los títulos, pero no encontré filas de ventas válidas.");
+  return {rows:out,headerRow:hr+1};
+}
+async function parsePurchases(file){
+  const m=await matrixFromFile(file),hr=findHeader(m,["compra"]);
+  if(hr<0)throw new Error("No encontré una columna de importe/compras.");
+  const h=m[hr].map(v=>String(v??"").trim()),iDate=findCol(h,"fecha"),iCode=findCol(h,"codigo"),iDesc=findCol(h,"descripcion"),iProv=findCol(h,"proveedor"),iRub=findCol(h,"rubro"),iAmt=findCol(h,"compra"),iQty=findCol(h,"cantidad");
+  let current=null,out=[];
+  for(let r=hr+1;r<m.length;r++){
+    const row=m[r]||[];
+    if(iDate>=0 && String(row[iDate]??"").trim()!==""){const d=excelDate(row[iDate]);if(d)current=d}
+    const amount=number(row[iAmt]); if(!amount)continue;
+    out.push({source:"Compras",file:file.name,date:iso(current),code:iCode>=0?code(row[iCode]):"",desc:iProv>=0?String(row[iProv]??"").trim():(iDesc>=0?String(row[iDesc]??"").trim():""),rubro:iRub>=0?String(row[iRub]??"").trim():"",qty:iQty>=0?number(row[iQty]):0,amount});
+  }
+  if(!out.length)throw new Error("No encontré filas de compras válidas.");
+  return {rows:out,headerRow:hr+1};
+}
+async function parseWaste(file){
+  const m=await matrixFromFile(file);
+  let hr=findHeader(m,["costo"]); if(hr<0)hr=findHeader(m,["cantidad"]);
+  if(hr<0)throw new Error("No encontré columnas de costo/importe o cantidad.");
+  const h=m[hr].map(v=>String(v??"").trim()),iDate=findCol(h,"fecha"),iCode=findCol(h,"codigo"),iDesc=findCol(h,"descripcion"),iRub=findCol(h,"rubro"),iConcept=findCol(h,"concepto"),iCost=findCol(h,"costo"),iQty=findCol(h,"cantidad");
+  let current=null,out=[];
+  for(let r=hr+1;r<m.length;r++){
+    const row=m[r]||[];
+    if(iDate>=0 && String(row[iDate]??"").trim()!==""){const d=excelDate(row[iDate]);if(d)current=d}
+    if(iConcept>=0 && !norm(row[iConcept]).includes("decomiso"))continue;
+    const amount=iCost>=0?Math.abs(number(row[iCost])):0,qty=iQty>=0?Math.abs(number(row[iQty])):0;
+    if(!amount && !qty)continue;
+    out.push({source:"Decomiso",file:file.name,date:iso(current),code:iCode>=0?code(row[iCode]):"",desc:iDesc>=0?String(row[iDesc]??"").trim():"",rubro:iRub>=0?String(row[iRub]??"").trim():"",qty,amount});
+  }
+  if(!out.length)throw new Error(iConcept>=0?"No encontré filas con concepto DECOMISO.":"No encontré filas de movimientos válidas.");
+  return {rows:out,headerRow:hr+1};
+}
+async function parseCatalog(file){
+  const m=await matrixFromFile(file),hr=findHeader(m,["codigo","descripcion"]);
+  if(hr<0)throw new Error("No encontré Código y Descripción.");
+  const h=m[hr].map(v=>String(v??"").trim()),iCode=findCol(h,"codigo"),iDesc=findCol(h,"descripcion"),iRub=findCol(h,"rubro"),iProv=findCol(h,"proveedor");
+  const out=[];
+  for(let r=hr+1;r<m.length;r++){const row=m[r]||[],c=code(row[iCode]),desc=String(row[iDesc]??"").trim();if(!c||!desc)continue;out.push({code:c,desc,rubro:iRub>=0?String(row[iRub]??"").trim():"",provider:iProv>=0?String(row[iProv]??"").trim():""})}
+  if(!out.length)throw new Error("No encontré artículos válidos.");
+  return {rows:out,headerRow:hr+1};
+}
+function enrich(){
+  const map=new Map(state.catalog.map(x=>[x.code,x]));
+  for(const arr of [state.sales,state.purchases,state.waste])for(const x of arr){const c=map.get(x.code);if(c){if(!x.rubro)x.rubro=c.rubro;if(!x.desc)x.desc=c.desc}}
+}
+function fileLine(x){return '<div class="file"><span>'+esc(x.name)+'</span><span class="'+(x.ok?"ok":"bad")+'">'+(x.ok?x.count+" filas · cabecera fila "+x.header:x.error)+'</span></div>'}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function renderFiles(type){const el=$("#"+type+"Files"),list=state.files[type];el.innerHTML=list.length?list.map(fileLine).join(""):"Sin archivos."}
+async function loadType(type,files){
+  const parse={sales:parseSales,purchases:parsePurchases,waste:parseWaste,catalog:parseCatalog}[type];
+  state[type]=[];state.files[type]=[];renderFiles(type);
+  for(const f of files){
+    try{const p=await parse(f);state[type].push(...p.rows);state.files[type].push({name:f.name,ok:true,count:p.rows.length,header:p.headerRow})}
+    catch(e){state.files[type].push({name:f.name,ok:false,error:String(e.message||e)})}
+    renderFiles(type);
+  }
+  enrich();updateStatus();renderPreview();
+}
+function updateStatus(){
+  const okSales=state.sales.length>0,bad=Object.values(state.files).flat().filter(x=>!x.ok);
+  const s=$("#status");
+  if(!okSales){s.innerHTML='<strong>Falta un archivo de ventas válido</strong><small>'+ (bad.length?bad[0].error:"Cargá al menos un reporte de ventas.") +'</small>';return}
+  const dates=state.sales.map(x=>x.date).filter(Boolean).sort();
+  const range=dates.length?dates[0]+" a "+dates[dates.length-1]:"sin fecha";
+  s.innerHTML='<strong>'+state.sales.length.toLocaleString("es-AR")+' filas de ventas listas</strong><small>Período: '+range+' · Compras: '+state.purchases.length.toLocaleString("es-AR")+' · Decomisos: '+state.waste.length.toLocaleString("es-AR")+'</small>';
+}
+function renderPreview(){
+  const rows=[...state.sales.slice(0,35),...state.purchases.slice(0,10),...state.waste.slice(0,5)];
+  $("#preview").innerHTML=rows.length?rows.map(x=>'<tr><td><span class="pill">'+esc(x.source)+'</span></td><td>'+esc(x.date||"—")+'</td><td>'+esc(x.code||"")+'</td><td>'+esc(x.desc||"")+'</td><td>'+esc(x.rubro||"")+'</td><td class="num">'+fmtNum(x.qty)+'</td><td class="num">'+fmtMoney(x.amount)+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">La vista previa aparecerá acá.</td></tr>';
+}
+function periodKey(date,mode){
+  if(!date)return "Sin fecha";const [y,m,d]=date.split("-").map(Number),dt=new Date(y,m-1,d);
+  if(mode==="day")return date;
+  if(mode==="month")return y+"-"+String(m).padStart(2,"0");
+  if(mode==="fortnight")return y+"-"+String(m).padStart(2,"0")+" · "+(d<=15?"1ra quincena":"2da quincena");
+  const tmp=new Date(dt);const day=(tmp.getDay()+6)%7;tmp.setDate(tmp.getDate()-day);return "Semana "+iso(tmp);
+}
+function delta(cur,prev){if(!prev)return null;return (cur/prev-1)*100}
+function subDelta(v){return v===null?"Sin comparativo":(v>=0?"+":"")+v.toFixed(1)+"% vs anterior"}
+function analyze(){
+  if(!state.sales.length){showNotice("No hay un archivo de ventas válido.");return}
+  enrich();const mode=$("#mode").value;
+  const ag=new Map();
+  for(const x of state.sales){const k=periodKey(x.date,mode);if(!ag.has(k))ag.set(k,{rev:0,qty:0,rows:[]});const a=ag.get(k);a.rev+=x.amount;a.qty+=x.qty;a.rows.push(x)}
+  const keys=[...ag.keys()].filter(k=>k!=="Sin fecha").sort();
+  const curKey=keys[keys.length-1]||"Sin fecha",prevKey=keys[keys.length-2]||null,cur=ag.get(curKey)||{rev:0,qty:0,rows:[]},prev=prevKey?ag.get(prevKey):null;
+  const purchaseCur=state.purchases.filter(x=>periodKey(x.date,mode)===curKey).reduce((a,x)=>a+x.amount,0);
+  const purchasePrev=prevKey?state.purchases.filter(x=>periodKey(x.date,mode)===prevKey).reduce((a,x)=>a+x.amount,0):0;
+  const wasteCur=state.waste.filter(x=>periodKey(x.date,mode)===curKey).reduce((a,x)=>a+x.amount,0);
+  const wastePrev=prevKey?state.waste.filter(x=>periodKey(x.date,mode)===prevKey).reduce((a,x)=>a+x.amount,0):0;
+  $("#kRevenue").textContent=fmtMoney(cur.rev);$("#kRevenueSub").textContent=subDelta(prev?delta(cur.rev,prev.rev):null);
+  $("#kUnits").textContent=fmtNum(cur.qty);$("#kUnitsSub").textContent=subDelta(prev?delta(cur.qty,prev.qty):null);
+  $("#kPurchases").textContent=fmtMoney(purchaseCur);$("#kPurchasesSub").textContent=subDelta(prevKey?delta(purchaseCur,purchasePrev):null);
+  $("#kWaste").textContent=fmtMoney(wasteCur);$("#kWasteSub").textContent=subDelta(prevKey?delta(wasteCur,wastePrev):null);
+  renderTop(cur.rows);renderRubros(cur.rows);
+  $("#status").innerHTML='<strong>Análisis generado: '+esc(curKey)+'</strong><small>Comparación contra '+esc(prevKey||"sin período anterior")+'</small>';
+}
+function renderTop(rows){
+  const m=new Map();for(const x of rows){const k=x.code+"|"+x.desc;if(!m.has(k))m.set(k,{desc:x.desc,rev:0});m.get(k).rev+=x.amount}
+  const a=[...m.values()].sort((x,y)=>y.rev-x.rev).slice(0,7),max=a[0]?.rev||1;
+  $("#topProducts").className="";$("#topProducts").innerHTML=a.length?a.map(x=>'<div class="bar"><span>'+esc(x.desc)+'</span><b>'+fmtMoney(x.rev)+'</b><div class="barline"><i style="width:'+Math.max(3,x.rev/max*100)+'%"></i></div></div>').join(""):'<div class="empty">Sin datos.</div>';
+}
+function renderRubros(rows){
+  const m=new Map();for(const x of rows){const k=x.rubro||"Sin rubro";m.set(k,(m.get(k)||0)+x.amount)}
+  const a=[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10),tot=a.reduce((s,x)=>s+x[1],0)||1;
+  $("#rubros").className="";$("#rubros").innerHTML=a.length?a.map(([k,v])=>'<div class="bar"><span>'+esc(k)+'</span><b>'+(v/tot*100).toFixed(1)+'%</b><div class="barline"><i style="width:'+Math.max(3,v/tot*100)+'%"></i></div></div>').join(""):'<div class="empty">Sin datos.</div>';
+}
+function showNotice(msg){const n=$("#notice");n.style.display="block";n.textContent=msg;setTimeout(()=>n.style.display="none",6000)}
+$("#salesInput").onchange=e=>loadType("sales",[...e.target.files]);
+$("#purchasesInput").onchange=e=>loadType("purchases",[...e.target.files]);
+$("#wasteInput").onchange=e=>loadType("waste",[...e.target.files]);
+$("#catalogInput").onchange=e=>loadType("catalog",[...e.target.files]);
+$("#analyze").onclick=analyze;
+$("#clear").onclick=()=>{for(const k of ["sales","purchases","waste","catalog"]){state[k]=[];state.files[k]=[];renderFiles(k)}for(const id of ["salesInput","purchasesInput","wasteInput","catalogInput"])$("#"+id).value="";updateStatus();renderPreview();["kRevenue","kUnits","kPurchases","kWaste"].forEach(id=>$("#"+id).textContent="—");$("#topProducts").innerHTML='<div class="empty">Sin datos.</div>';$("#rubros").innerHTML='<div class="empty">Sin datos.</div>'};
+updateStatus();
+</script>
+</body></html>
