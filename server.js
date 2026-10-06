@@ -106,7 +106,7 @@ function authorized(pin){return !!ADMIN_PIN&&String(pin||"")===ADMIN_PIN}
 function makePdf(res,payload,s){
   const provider=String(payload.provider||""),edits=payload.items||[],um=new Map(edits.map(x=>[String(x.code),Number(x.units)||0]));
   const coverageDays=Math.max(1,Math.min(365,Number(payload.coverageDays)||7));
-  const suggestedFor=x=>{if(x.demand<=0)return 0;const stock=Number(x.stock||0),need=Math.max(0,(x.demand*coverageDays)-stock),uxb=Math.max(1,Number(x.uxb||1));return need>0?Math.ceil((need-1e-9)/uxb)*uxb:0};
+  const suggestedFor=x=>{if(x.demand<=0)return 0;const stock=Number(x.stock||0),need=Math.max(0,(x.demand*coverageDays)-stock);return need>0?Math.ceil(need-1e-9):0};
   const rows=(s.dataset||[]).filter(x=>x.provider===provider&&um.get(x.code)>0).sort((a,b)=>a.desc.localeCompare(b.desc,"es"));
   if(!rows.length)return json(res,400,{error:"No hay artículos para imprimir"});
   const doc=new PDFDocument({size:"A4",layout:"landscape",margin:28});res.writeHead(200,{"Content-Type":"application/pdf","Content-Disposition":'attachment; filename="pedido.pdf"'});doc.pipe(res);
