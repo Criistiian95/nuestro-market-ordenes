@@ -11,7 +11,7 @@ const DATABASE_URL=String(process.env.DATABASE_URL||"").trim();
 const LOCAL_STATE=path.join(__dirname,"state.local.json");
 const pool=DATABASE_URL?new Pool({connectionString:DATABASE_URL,ssl:process.env.NODE_ENV==="production"?{rejectUnauthorized:false}:false}):null;
 
-const emptyState=()=>({costs:null,stock:null,sales:null,dataset:[],meta:{coverage:7,safety:2}});
+const emptyState=()=>({costs:null,stock:null,sales:null,cardex:null,dataset:[],meta:{coverage:7,safety:2}});
 async function initStore(){
   if(!pool)return;
   await pool.query(`CREATE TABLE IF NOT EXISTS app_state (
@@ -43,6 +43,7 @@ function body(req,limit=28*1024*1024){return new Promise((resolve,reject)=>{let 
 function norm(v){return String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toUpperCase().replace(/\s+/g," ")}
 function num(v,d=0){if(v===null||v===undefined||v==="")return d;let s=String(v).trim();if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"").replace(",",".");else s=s.replace(",",".");const n=Number(s);return Number.isFinite(n)?n:d}
 function code(v){if(typeof v==="number"&&Number.isInteger(v))return String(v);return String(v??"").trim().replace(/\.0$/,"")}
+function canonCode(v){const s=code(v);return /^\d+$/.test(s)?s.replace(/^0+(?=\d)/,""):s}
 function dateKey(v){
   if(v instanceof Date&&!isNaN(v))return [v.getFullYear(),String(v.getMonth()+1).padStart(2,"0"),String(v.getDate()).padStart(2,"0")].join("-");
   if(typeof v==="number"&&v>30000){const d=XLSX.SSF.parse_date_code(v);if(d)return [d.y,String(d.m).padStart(2,"0"),String(d.d).padStart(2,"0")].join("-")}
@@ -72,11 +73,12 @@ function rebuild(s){
     const stockValue=st?Number(st.stock||0):0;
     const stockCalc=Math.max(0,stockValue),target=dem*(cov+safe),need=Math.max(0,target-stockCalc),uxb=Math.max(1,Number(st?.uxb||1));
     const suggested=dem>0&&need>0?Math.ceil((need-1e-9)/uxb)*uxb:0;
-    out.push({code:c,desc:m.desc,rubro:m.rubro,provider:m.provider,stock:stockValue,uxb,stockMissing,sold7:l7.reduce((x,y)=>x+y,0),demand:dem,coverage:dem>0?stockCalc/dem:null,suggested,soldTotal:daily.reduce((x,y)=>x+y,0)})
+    const cd=s.cardex?.byCode?.[canonCode(c)]||null;
+    out.push({code:c,desc:m.desc,rubro:m.rubro,provider:m.provider,stock:stockValue,uxb,stockMissing,sold7:l7.reduce((x,y)=>x+y,0),demand:dem,coverage:dem>0?stockCalc/dem:null,suggested,soldTotal:daily.reduce((x,y)=>x+y,0),breakDate:cd?.breakDate||null,breakAtStart:!!cd?.breakAtStart,cardexLastDate:cd?.lastDate||null,cardexLastStock:cd?.lastStock??null})
   }
   const salesDays=dayCount(s.sales.minDate,s.sales.maxDate);
   s.dataset=out;
-  s.meta={articles:out.length,providers:new Set(out.map(x=>x.provider).filter(Boolean)).size,salesFrom:s.sales.minDate,salesTo:s.sales.maxDate,salesDays,coverage:cov,safety:safe,updatedAt:new Date().toISOString(),salesWindowOk:salesDays>=28&&salesDays<=32}
+  s.meta={articles:out.length,providers:new Set(out.map(x=>x.provider).filter(Boolean)).size,salesFrom:s.sales.minDate,salesTo:s.sales.maxDate,salesDays,coverage:cov,safety:safe,updatedAt:new Date().toISOString(),salesWindowOk:salesDays>=28&&salesDays<=32,cardexFrom:s.cardex?.minDate||null,cardexTo:s.cardex?.maxDate||null,cardexArticles:s.cardex?.articles||0}
 }
 function parseUpload(type,buf){
   const rows=parseRows(buf);
@@ -99,6 +101,34 @@ function parseUpload(type,buf){
     for(let r=hi+1;r<rows.length;r++){const row=rows[r]||[];if(row[idf]!==null&&row[idf]!==undefined&&String(row[idf]).trim()!==""){const k=dateKey(row[idf]);if(k)cur=k}const c=code(row[ic]);if(!cur||!/^\d+$/.test(c))continue;if(!by[c])by[c]={};by[c][cur]=(by[c][cur]||0)+num(row[iq],0);if(!min||cur<min)min=cur;if(!max||cur>max)max=cur}
     if(!min)throw new Error("No encontré ventas con fecha válida");
     return {byCode:by,minDate:min,maxDate:max}
+  }
+  if(type==="cardex"){
+    const hi=headerRow(rows,[["Fecha"],["Detalle"],["Stock"]]);if(hi<0)throw new Error("No encontré FECHA, DETALLE y STOCK en el Cardex");
+    const h=rows[hi],idf=idx(h,["Fecha"]),idd=idx(h,["Detalle"]),is=idx(h,["Stock"]);
+    const byCode={};let current="",min="",max="";
+    for(let r=hi+1;r<rows.length;r++){
+      const row=rows[r]||[],detail=String(row[idd]??"").trim();
+      const art=detail.match(/ARTICULO\s*:\s*\[\s*(\d+)\s*\]\s*(.*)$/i);
+      if(art){
+        current=canonCode(art[1]);const k=dateKey(row[idf]),stock=num(row[is],0);
+        if(!byCode[current])byCode[current]={desc:String(art[2]||"").trim(),breakDate:null,breakAtStart:false,lastDate:null,lastStock:null};
+        const o=byCode[current];o.desc=String(art[2]||o.desc||"").trim();o.lastStock=stock;
+        if(k){o.lastDate=k;if(!min||k<min)min=k;if(!max||k>max)max=k}
+        if(stock<=0&&k){o.breakDate=k;o.breakAtStart=true}else if(stock>0){o.breakDate=null;o.breakAtStart=false}
+        continue
+      }
+      if(!current)continue;
+      const k=dateKey(row[idf]);if(!k)continue;
+      const rawStock=row[is];if(rawStock===null||rawStock===undefined||String(rawStock).trim()==="")continue;
+      const stock=num(rawStock,0),o=byCode[current],prev=o.lastStock;
+      if(stock<=0){
+        if(prev===null||prev>0){o.breakDate=k;o.breakAtStart=false}
+      }else{o.breakDate=null;o.breakAtStart=false}
+      o.lastStock=stock;o.lastDate=k;
+      if(!min||k<min)min=k;if(!max||k>max)max=k
+    }
+    const articles=Object.keys(byCode).length;if(!articles)throw new Error("No encontré artículos válidos en el Cardex");
+    return {byCode,minDate:min,maxDate:max,articles}
   }
   throw new Error("Tipo inválido")
 }
@@ -126,14 +156,14 @@ const server=http.createServer(async(req,res)=>{const u=new URL(req.url,"http://
     if(req.method==="GET"&&u.pathname==="/assets/logo.jpg")return file(res,"assets/logo.jpg","image/jpeg");
     if(req.method==="GET"&&u.pathname==="/health"){res.writeHead(200,{"Content-Type":"text/plain"});return res.end("ok")}
     if(req.method==="GET"&&u.pathname==="/api/data"){const s=await load();if(s.costs&&s.stock&&s.sales){rebuild(s);await save(s)}return json(res,200,{dataset:s.dataset||[],meta:s.meta||{},ready:!!(s.costs&&s.stock&&s.sales)})}
-    if(req.method==="GET"&&u.pathname==="/api/status"){const s=await load();return json(res,200,{costs:s.costs?Object.keys(s.costs).length:0,stock:s.stock?Object.keys(s.stock).length:0,sales:s.sales?Object.keys(s.sales.byCode).length:0,meta:s.meta||{},database:pool?"postgres":"local"})}
+    if(req.method==="GET"&&u.pathname==="/api/status"){const s=await load();return json(res,200,{costs:s.costs?Object.keys(s.costs).length:0,stock:s.stock?Object.keys(s.stock).length:0,sales:s.sales?Object.keys(s.sales.byCode).length:0,cardex:s.cardex?.articles||0,meta:s.meta||{},database:pool?"postgres":"local"})}
     if(req.method==="POST"&&u.pathname==="/api/upload"){
       if(process.env.RENDER&&!pool)return json(res,503,{error:"Falta conectar DATABASE_URL en Render antes de cargar las bases"});
       if(!ADMIN_PIN)return json(res,503,{error:"ADMIN_PIN no configurado en el servidor"});
       const p=JSON.parse((await body(req)).toString("utf8"));if(!authorized(p.pin))return json(res,403,{error:"PIN incorrecto"});
       const buf=Buffer.from(p.dataBase64||"","base64");if(!buf.length)throw new Error("Archivo vacío");
       const parsed=parseUpload(p.type,buf),s=await load();s[p.type]=parsed;rebuild(s);await save(s);
-      const count=p.type==="sales"?Object.keys(parsed.byCode).length:Object.keys(parsed).length;
+      const count=p.type==="sales"?Object.keys(parsed.byCode).length:p.type==="cardex"?(parsed.articles||0):Object.keys(parsed).length;
       return json(res,200,{ok:true,type:p.type,count,ready:!!(s.costs&&s.stock&&s.sales),articles:s.dataset.length,meta:s.meta})
     }
     if(req.method==="POST"&&u.pathname==="/api/pdf"){const p=JSON.parse((await body(req,2*1024*1024)).toString("utf8"));return makePdf(res,p,await load())}
